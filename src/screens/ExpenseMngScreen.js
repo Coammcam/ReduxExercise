@@ -3,6 +3,7 @@ import {
   addExpense,
   updateExpense,
   deleteExpense,
+  fetchExpense as fetchExpensesReducer,
 } from '../redux/reducers/ExpenseMngReducer';
 import {
   Button,
@@ -14,7 +15,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
+import {
+  deleteExpenseApi,
+  fetchExpense as fetchExpensesApi,
+  updateExpenseApi,
+  addExpenseApi,
+} from '../redux/actions/ExpenseMngAction';
 
 const ExpenseMngScreen = () => {
   const [id, setId] = useState(null);
@@ -24,14 +31,27 @@ const ExpenseMngScreen = () => {
   const [incomeType, setIncomeType] = useState('income');
   const [amount, setAmount] = useState('');
 
-  const [search, setSearch] = useState('');
+  const [idEdit, setIdEdit] = useState(null);
 
-  const listExpense = useSelector(state => state.listExpense.listExpense);
+  const listExpense = useSelector(state => state.listExpenseStore.listExpense);
 
   const dispatch = useDispatch();
 
-  const handleAddOrUpdateExpense = () => {
-    const data = {
+  useEffect(() => {
+    const fetchData = async () => {
+      const resultAction = await dispatch(fetchExpensesApi());
+      if (fetchExpensesApi.fulfilled.match(resultAction)) {
+        console.log('Fetch successful:', resultAction.payload);
+      } else {
+        console.error('Fetch failed:', resultAction.payload);
+      }
+    };
+
+    fetchData();
+  }, [dispatch]);
+
+  const handleAddExpense = () => {
+    let data = {
       id: id ? id : Math.random().toString(),
       title,
       description,
@@ -39,12 +59,38 @@ const ExpenseMngScreen = () => {
       incomeType,
       amount: parseFloat(amount),
     };
-    if (id) {
-      dispatch(updateExpense(data));
+
+    if (idEdit) {
+      dispatch(updateExpenseApi({id: idEdit, data: data}))
+        .then(result => {
+          console.log('Expense updated successfully!');
+          setIdEdit(null);
+          dispatch(fetchExpensesApi());
+        })
+        .catch(error => {
+          console.error('Error updating expense:', error);
+        });
     } else {
-      dispatch(addExpense(data));
+      dispatch(addExpenseApi(data)).then(() => dispatch(fetchExpensesApi()));
     }
     resetForm();
+  };
+
+  const handleEditExpense = (
+    id,
+    title,
+    description,
+    incomeDate,
+    incomeType,
+    amount,
+  ) => {
+    setId(id);
+    setTitle(title);
+    setDescription(description);
+    setIncomeDate(incomeDate);
+    setIncomeType(incomeType);
+    setAmount(amount.toString());
+    setIdEdit(id);
   };
 
   const resetForm = () => {
@@ -56,20 +102,15 @@ const ExpenseMngScreen = () => {
     setAmount('');
   };
 
-  const handleEditExpense = expense => {
-    setId(expense.id);
-    setTitle(expense.title);
-    setDescription(expense.description);
-    setIncomeDate(expense.incomeDate);
-    setIncomeType(expense.incomeType);
-    setAmount(expense.amount.toString());
+  const handleDeleteExpense = async id => {
+    dispatch(deleteExpenseApi(id))
+      .then(result => {
+        console.log('Expense deleted successfully');
+        dispatch(fetchExpensesApi());
+      })
+      .catch(error => console.error('Error deleting expense', error));
   };
 
-  const handleDeleteExpense = id => {
-    dispatch(deleteExpense({id}));
-  };
-
-  // const toggleTaskStatus = (listExpense: ListExpense) => {};
   const totalIncome = listExpense
     .filter(expense => expense.incomeType === 'income')
     .reduce((acc, expense) => acc + expense.amount, 0);
@@ -78,30 +119,12 @@ const ExpenseMngScreen = () => {
     .filter(expense => expense.incomeType === 'expense')
     .reduce((acc, expense) => acc + expense.amount, 0);
 
-  const filteredExpenses = listExpense.filter(expense =>
-    expense.title.toLowerCase().includes(search.toLowerCase()),
-  );
-
   return (
     <View style={{flex: 1}}>
       <Text style={{fontSize: 25, color: 'black', alignSelf: 'center'}}>
         Expense Management
       </Text>
 
-      <View
-        style={{
-          flexDirection: 'row',
-          width: '100%',
-          height: 50,
-          paddingHorizontal: 16,
-        }}>
-        <TextInput
-          placeholder="Search"
-          value={search}
-          onChangeText={setSearch}
-          style={{flex: 9, borderWidth: 1, marginEnd: 10}}
-        />
-      </View>
       <View
         style={{
           flexDirection: 'row',
@@ -137,7 +160,6 @@ const ExpenseMngScreen = () => {
         style={{
           flexDirection: 'row',
           marginStart: 16,
-          //   justifyContent: 'space-around',
         }}>
         <Text>Type: </Text>
         <TouchableOpacity onPress={() => setIncomeType('income')}>
@@ -166,57 +188,57 @@ const ExpenseMngScreen = () => {
 
       <Button
         title={id ? 'Update Expense' : 'Add Expense'}
-        onPress={handleAddOrUpdateExpense}
+        onPress={handleAddExpense}
       />
 
-      {/* {listExpense.map(row => (
-        <View
-          key={row.id}
-          style={{padding: 10, margin: 10, backgroundColor: 'cyan'}}>
-          <Text>
-            {row.title} === {row.id}
-          </Text>
-        </View>
-      ))} */}
-
       <FlatList
-        data={filteredExpenses}
-        renderItem={({item}) => (
-          <View>
-            <Text>title: {item.title}</Text>
-            <Text>description: {item.description}</Text>
-            <Text>incomeDate: {item.incomeDate}</Text>
-            <Text
-              style={{
-                color: item.incomeType === 'income' ? '#00ff00' : '#ff0000',
-              }}>
-              incomeType: {item.incomeType}{' '}
-            </Text>
-            <Text>amount: {item.amount}</Text>
-            <View style={{flexDirection: 'row'}}>
-              <TouchableOpacity
-                onPress={() => {
-                  handleDeleteExpense(item.id);
-                }}
-                style={{width: 20, height: 20}}>
-                <Image
-                  source={require('../image/bin.png')}
-                  style={{width: 20, height: 20}}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => {
-                  handleEditExpense(item);
-                }}
-                style={{width: 20, height: 20, marginStart: 10}}>
-                <Image
-                  source={require('../image/pencil.png')}
-                  style={{width: 20, height: 20}}
-                />
-              </TouchableOpacity>
+        data={listExpense}
+        renderItem={({item}) => {
+          console.log('Render Items: ', item);
+          return (
+            // Thêm return ở đây
+            <View style={{borderBottomWidth: 1, paddingBottom: 5}}>
+              <Text>ID: {item.id}</Text>
+              <Text>Title: {item.title}</Text>
+              <Text>Description: {item.description}</Text>
+              <Text>Income Date: {item.incomeDate}</Text>
+              <Text
+                style={{
+                  color: item.incomeType === 'income' ? '#00ff00' : '#ff0000',
+                }}>
+                Income Type: {item.incomeType}
+              </Text>
+              <Text>Amount: {item.amount}</Text>
+              <View style={{flexDirection: 'row'}}>
+                <TouchableOpacity
+                  onPress={() => handleDeleteExpense(item.id)}
+                  style={{width: 20, height: 20}}>
+                  <Image
+                    source={require('../image/bin.png')}
+                    style={{width: 20, height: 20}}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() =>
+                    handleEditExpense(
+                      item.id,
+                      item.title,
+                      item.description,
+                      item.incomeDate,
+                      item.incomeType,
+                      item.amount,
+                    )
+                  }
+                  style={{width: 20, height: 20, marginStart: 10}}>
+                  <Image
+                    source={require('../image/pencil.png')}
+                    style={{width: 20, height: 20}}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        )}
+          );
+        }}
         keyExtractor={item => item.id}
         style={styles.list}
       />
@@ -229,9 +251,7 @@ export default ExpenseMngScreen;
 const styles = StyleSheet.create({
   input: {borderWidth: 1, marginHorizontal: 16, marginBottom: 5},
   list: {
-    // marginTop: 10,
     flex: 1,
-    // backgroundColor: 'red',
     margin: 10,
   },
 });

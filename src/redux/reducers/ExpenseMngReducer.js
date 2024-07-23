@@ -1,4 +1,10 @@
 import {createSlice} from '@reduxjs/toolkit';
+import {
+  fetchExpense,
+  deleteExpenseApi,
+  addExpenseApi,
+  updateExpenseApi,
+} from '../actions/ExpenseMngAction';
 
 const initialState = {
   listExpense: [],
@@ -11,21 +17,52 @@ const expenseSlice = createSlice({
     addExpense(state, action) {
       state.listExpense.push(action.payload);
     },
-    updateExpense(state, action) {
-      const index = state.listExpense.findIndex(
-        expense => expense.id === action.payload.id,
-      );
-      if (index !== -1) {
-        state.listExpense[index] = action.payload;
-      }
-    },
-    deleteExpense(state, action) {
-      state.listExpense = state.listExpense.filter(
-        expense => expense.id !== action.payload.id,
-      );
-    },
+    
+  },
+  extraReducers: builder => {
+    builder
+      // fetch expense
+      .addCase(fetchExpense.fulfilled, (state, action) => {
+        state.listExpense = action.payload;
+      })
+      .addCase(fetchExpense.rejected, (state, action) => {
+        console.log('Fetch expense rejected', action.error.message);
+      })
+      // add expense
+      .addCase(addExpenseApi.fulfilled, (state, action) => {
+        state.listExpense.push(action.payload);
+      })
+      .addCase(addExpenseApi.rejected, (state, action) => {
+        console.log('Add expense rejected', action.error.message);
+      })
+      // update expense
+      .addCase(updateExpenseApi.fulfilled, (state, action) => {
+        const {id, title, description, incomeDate, incomeType, amount} =
+          action.payload;
+
+        const expense = state.listExpense.find(row => row.id === id);
+        if (expense) {
+          expense.title = title;
+          expense.description = description;
+          expense.incomeDate = incomeDate;
+          expense.incomeType = incomeType;
+          expense.amount = amount;
+        }
+      })
+      .addCase(updateExpenseApi.rejected, (state, action) => {
+        console.log('Update expense rejected:', action.error.message);
+      })
+      // delete expense
+      .addCase(deleteExpenseApi.fulfilled, (state, action) => {
+        state.listExpense = state.listExpense.filter(
+          row => row.id !== action.payload,
+        );
+      })
+      .addCase(deleteExpenseApi.rejected, (state, action) => {
+        console.log('Delete expense rejected', action.error.message);
+      });
   },
 });
 
-export const {addExpense, updateExpense, deleteExpense} = expenseSlice.actions;
+export const {addExpense, updateExpense} = expenseSlice.actions;
 export default expenseSlice.reducer;

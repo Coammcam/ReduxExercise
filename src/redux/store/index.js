@@ -3,7 +3,6 @@ import ExpenseMngReducer from '../reducers/ExpenseMngReducer';
 
 export default configureStore({
   reducer: {
-    listExpense: ExpenseMngReducer,
+    listExpenseStore: ExpenseMngReducer,
   },
 });
-
